@@ -1014,7 +1014,56 @@
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
-<script type="module">
+<!-- Firebase compat (real estate와 동일한 방식) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyAjNy8WO-jZd9_OiKqVBaL-aww4qAlfjGo",
+    authDomain: "babyporridge-c5bc5.firebaseapp.com",
+    databaseURL: "https://babyporridge-c5bc5-default-rtdb.firebaseio.com",
+    projectId: "babyporridge-c5bc5",
+    storageBucket: "babyporridge-c5bc5.firebasestorage.app",
+    messagingSenderId: "1005333099381",
+    appId: "1:1005333099381:web:2867db3015075e515a993c"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const _db = firebase.database();
+
+  let _writingRecipes = false;
+  let _writingGrains = false;
+
+  window._fbSaveRecipes = function(arr) {
+    _writingRecipes = true;
+    _db.ref('data/recipes').set(arr).then(() => { _writingRecipes = false; });
+  };
+  window._fbSaveGrains = function(arr) {
+    _writingGrains = true;
+    _db.ref('data/grainOptions').set(arr).then(() => { _writingGrains = false; });
+  };
+  window._fbWatch = function() {
+    _db.ref('data/recipes').on('value', (snap) => {
+      if (_writingRecipes) return;
+      const val = snap.val();
+      if (Array.isArray(val)) {
+        recipes = val;
+        if (typeof renderRecipes === 'function') renderRecipes();
+      }
+    });
+    _db.ref('data/grainOptions').on('value', (snap) => {
+      if (_writingGrains) return;
+      const val = snap.val();
+      if (Array.isArray(val)) {
+        GRAIN_OPTIONS = val;
+        if (typeof renderGrainManage === 'function') renderGrainManage();
+        if (typeof renderGrains === 'function') renderGrains();
+      }
+    });
+  };
+  console.log("Firebase 초기화 완료!");
+</script>
+
+<script>
 const DEFAULT_GRAINS = [
   { id:'oat',        name:'오트밀',   emoji:'🌿', isDefault:true },
   { id:'barley',     name:'보리',     emoji:'🌱', isDefault:true },
@@ -1479,64 +1528,12 @@ window.renderGrainManage = renderGrainManage;
 window.renderGrains = renderGrains;
 window.renderRecipes = renderRecipes;
 
-// ── Firebase 초기화 및 실시간 동기화
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyAjNy8WO-jZd9_OiKqVBaL-aww4qAlfjGo",
-  authDomain: "babyporridge-c5bc5.firebaseapp.com",
-  databaseURL: "https://babyporridge-c5bc5-default-rtdb.firebaseio.com",
-  projectId: "babyporridge-c5bc5",
-  storageBucket: "babyporridge-c5bc5.firebasestorage.app",
-  messagingSenderId: "1005333099381",
-  appId: "1:1005333099381:web:2867db3015075e515a993c"
-};
-
-const _app = initializeApp(firebaseConfig);
-const _db = getDatabase(_app);
-
-// Firebase 저장 함수 (쓰기 중 플래그로 루프 방지)
-let _writingRecipes = false;
-let _writingGrains = false;
-
-function fbSaveRecipes(arr) {
-  _writingRecipes = true;
-  set(ref(_db, 'data/recipes'), arr).finally(() => { _writingRecipes = false; });
-}
-function fbSaveGrains(arr) {
-  _writingGrains = true;
-  set(ref(_db, 'data/grainOptions'), arr).finally(() => { _writingGrains = false; });
-}
-
-// 전역 노출 (onclick 핸들러에서 호출)
-window._fbSaveRecipes = fbSaveRecipes;
-window._fbSaveGrains = fbSaveGrains;
-
-// 초기 렌더 (Firebase 데이터 오기 전 기본값으로)
+// 초기 렌더
 renderGrains();
 calc();
 
-// 레시피 실시간 동기화
-onValue(ref(_db, 'data/recipes'), (snapshot) => {
-  if (_writingRecipes) return;
-  const val = snapshot.val();
-  if (Array.isArray(val)) {
-    recipes = val;
-    renderRecipes();
-  }
-});
-
-// 잡곡 옵션 실시간 동기화
-onValue(ref(_db, 'data/grainOptions'), (snapshot) => {
-  if (_writingGrains) return;
-  const val = snapshot.val();
-  if (Array.isArray(val)) {
-    GRAIN_OPTIONS = val;
-    renderGrainManage();
-    renderGrains();
-  }
-});
+// Firebase 실시간 동기화 시작
+if (typeof window._fbWatch === 'function') window._fbWatch();
 </script>
 </body>
 </html>
