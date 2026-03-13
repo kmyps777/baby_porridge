@@ -1449,6 +1449,36 @@ function showToast(msg) {
   setTimeout(()=>t.classList.remove('show'), 2500);
 }
 
+// ── window에 전역 함수 등록 (module scope → onclick 접근용)
+window.switchTab = switchTab;
+window.step = step;
+window.stepGrain = stepGrain;
+window.addGrain = addGrain;
+window.removeGrain = removeGrain;
+window.updateGrainType = updateGrainType;
+window.updateGrainAmount = updateGrainAmount;
+window.calc = calc;
+window.saveRecipe = saveRecipe;
+window.loadRecipe = loadRecipe;
+window.toggleRename = toggleRename;
+window.toggleMemo = toggleMemo;
+window.doRename = doRename;
+window.doMemo = doMemo;
+window.confirmDelete = confirmDelete;
+window.closeConfirm = closeConfirm;
+window.doDelete = doDelete;
+window.showToast = showToast;
+window.openEmojiPicker = openEmojiPicker;
+window.closeEmojiPicker = closeEmojiPicker;
+window.selectEmoji = selectEmoji;
+window.addCustomGrain = addCustomGrain;
+window.moveGrain = moveGrain;
+window.deleteGrainOption = deleteGrainOption;
+window.updateGrainName = updateGrainName;
+window.renderGrainManage = renderGrainManage;
+window.renderGrains = renderGrains;
+window.renderRecipes = renderRecipes;
+
 // ── Firebase 초기화 및 실시간 동기화
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
