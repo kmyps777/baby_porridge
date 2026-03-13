@@ -986,7 +986,7 @@
         <button class="add-confirm-btn" onclick="addCustomGrain()">+ 추가하기</button>
       </div>
     </div>
-    <p class="footer-note" style="margin-top:8px">잡곡 목록은 기기에 저장돼요 💾</p>
+    <p class="footer-note" style="margin-top:8px">잡곡 목록은 모든 기기에 실시간 동기화돼요 ☁️</p>
   </div>
 
   <!-- Emoji picker -->
@@ -1014,6 +1014,53 @@
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAjNy8WO-jZd9_OiKqVBaL-aww4qAlfjGo",
+  authDomain: "babyporridge-c5bc5.firebaseapp.com",
+  databaseURL: "https://babyporridge-c5bc5-default-rtdb.firebaseio.com",
+  projectId: "babyporridge-c5bc5",
+  storageBucket: "babyporridge-c5bc5.firebasestorage.app",
+  messagingSenderId: "1005333099381",
+  appId: "1:1005333099381:web:2867db3015075e515a993c"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+// Firebase에 레시피 저장
+window._fbSaveRecipes = function(recipesArr) {
+  set(ref(db, 'data/recipes'), recipesArr);
+};
+
+// Firebase에 잡곡 옵션 저장
+window._fbSaveGrains = function(grainsArr) {
+  set(ref(db, 'data/grainOptions'), grainsArr);
+};
+
+// Firebase에서 실시간 동기화
+onValue(ref(db, 'data/recipes'), (snapshot) => {
+  const val = snapshot.val();
+  if (val !== null && Array.isArray(val)) {
+    window.recipes = val;
+    if (typeof renderRecipes === 'function') renderRecipes();
+  }
+});
+
+onValue(ref(db, 'data/grainOptions'), (snapshot) => {
+  const val = snapshot.val();
+  if (val !== null && Array.isArray(val)) {
+    window.GRAIN_OPTIONS = val;
+    if (typeof renderGrainManage === 'function') renderGrainManage();
+    if (typeof renderGrains === 'function') renderGrains();
+  }
+});
+</script>
+
 <script>
 const DEFAULT_GRAINS = [
   { id:'oat',        name:'오트밀',   emoji:'🌿', isDefault:true },
@@ -1037,22 +1084,20 @@ const FOOD_EMOJIS = [
   '⭐','✨','🌟','💫','🔥','💎','🪙','🏵️',
 ];
 
-// Load grain options - full ordered list saved, fallback to defaults
+// Load grain options - Firebase에서 onValue로 실시간 수신, 초기값은 DEFAULT
 function loadGrainOptions() {
-  const savedOrder = localStorage.getItem('grainOptionsOrder');
-  if (savedOrder) {
-    try { return JSON.parse(savedOrder); } catch(e) {}
-  }
   return [...DEFAULT_GRAINS];
 }
 function saveGrainOptions() {
-  localStorage.setItem('grainOptionsOrder', JSON.stringify(GRAIN_OPTIONS));
+  if (typeof window._fbSaveGrains === 'function') {
+    window._fbSaveGrains(GRAIN_OPTIONS);
+  }
 }
 
 let GRAIN_OPTIONS = loadGrainOptions();
 let grains = [{ id:1, type:'oat', amount:5 }];
 let grainIdCounter = 2;
-let recipes = JSON.parse(localStorage.getItem('babyPorridgeRecipes') || '[]');
+let recipes = [];
 
 // Emoji picker state
 let emojiTarget = null; // 'new' or grain manage id
@@ -1290,7 +1335,9 @@ function saveRecipe() {
   };
 
   recipes.unshift(recipe);
-  localStorage.setItem('babyPorridgeRecipes', JSON.stringify(recipes));
+  if (typeof window._fbSaveRecipes === 'function') {
+    window._fbSaveRecipes(recipes);
+  }
   document.getElementById('recipe-name').value = '';
   document.getElementById('recipe-memo').value = '';
   showToast(`"${name}" 저장완료! 📌`);
@@ -1401,7 +1448,7 @@ function doRename(id) {
   const newName = document.getElementById('rename-input-'+id).value.trim();
   if(!newName) { showToast('이름을 입력해주세요 ✏️'); return; }
   r.name = newName;
-  localStorage.setItem('babyPorridgeRecipes', JSON.stringify(recipes));
+  if (typeof window._fbSaveRecipes === 'function') window._fbSaveRecipes(recipes);
   renderRecipes();
   showToast('저장됐어요 ✅');
 }
@@ -1412,7 +1459,7 @@ function doMemo(id) {
   if(!newName) { showToast('이름을 입력해주세요 ✏️'); return; }
   r.name = newName;
   r.memo = document.getElementById('memo-input-'+id).value.trim();
-  localStorage.setItem('babyPorridgeRecipes', JSON.stringify(recipes));
+  if (typeof window._fbSaveRecipes === 'function') window._fbSaveRecipes(recipes);
   renderRecipes();
   showToast('저장됐어요 ✅');
 }
@@ -1432,7 +1479,7 @@ function closeConfirm() {
 function doDelete() {
   if(pendingDeleteId === null) return;
   recipes = recipes.filter(r=>r.id!==pendingDeleteId);
-  localStorage.setItem('babyPorridgeRecipes', JSON.stringify(recipes));
+  if (typeof window._fbSaveRecipes === 'function') window._fbSaveRecipes(recipes);
   closeConfirm();
   renderRecipes();
   showToast('레시피를 삭제했어요 🗑');
