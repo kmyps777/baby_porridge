@@ -608,6 +608,36 @@
   }
   .recipe-name-input:focus { border-color: var(--gold); }
   .recipe-name-input::placeholder { color: #C8A878; }
+  .recipe-memo-input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    font-size: 13px;
+    color: var(--brown-dark);
+    background: white;
+    outline: none;
+    font-family: 'Noto Sans KR', sans-serif;
+    transition: border-color 0.2s;
+    resize: none;
+    height: 72px;
+    line-height: 1.5;
+    margin-bottom: 14px;
+  }
+  .recipe-memo-input:focus { border-color: var(--gold); }
+  .recipe-memo-input::placeholder { color: #C8A878; }
+  .recipe-memo-badge {
+    background: #F5F0E8;
+    border-left: 3px solid var(--gold);
+    border-radius: 0 8px 8px 0;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: var(--brown);
+    line-height: 1.5;
+    margin-bottom: 10px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
 
   /* ── Saved Recipes ── */
   .recipes-empty {
@@ -925,6 +955,7 @@
     <div class="recipe-name-wrap">
       <input class="recipe-name-input" type="text" id="recipe-name" placeholder="레시피 이름을 입력하세요 (예: 7개월 오트밀죽)">
     </div>
+    <textarea class="recipe-memo-input" id="recipe-memo" placeholder="메모 (선택) — 아가 반응, 특이사항 등을 적어두세요 🗒️"></textarea>
     <button class="save-recipe-btn" onclick="saveRecipe()">📌 이 레시피 저장하기</button>
     <p class="footer-note">우리 아가 맛있게 잘 먹겠죠? 🧡</p>
   </div>
@@ -1236,6 +1267,7 @@ function selectEmoji(emoji) {
 // ── Save recipe
 function saveRecipe() {
   const name = document.getElementById('recipe-name').value.trim() || '이름 없는 레시피';
+  const memo = document.getElementById('recipe-memo').value.trim();
   const rice = parseInt(document.getElementById('rice').value)||0;
   const mult = parseInt(document.getElementById('multiplier').value)||1;
   const meals = parseInt(document.getElementById('meals').value)||1;
@@ -1247,7 +1279,7 @@ function saveRecipe() {
   const totalMeals = meals * days;
 
   const recipe = {
-    id: Date.now(), name,
+    id: Date.now(), name, memo,
     date: new Date().toLocaleDateString('ko-KR'),
     rice, grains: grains.map(g=>({ ...g })),
     multiplier: mult, meals, days,
@@ -1260,6 +1292,7 @@ function saveRecipe() {
   recipes.unshift(recipe);
   localStorage.setItem('babyPorridgeRecipes', JSON.stringify(recipes));
   document.getElementById('recipe-name').value = '';
+  document.getElementById('recipe-memo').value = '';
   showToast(`"${name}" 저장완료! 📌`);
 }
 
@@ -1314,15 +1347,21 @@ function renderRecipes() {
           <span>🍚 총 베이스죽</span>
           <span>≈ ${r.grandTotal}g</span>
         </div>
+        ${r.memo ? `<div class="recipe-memo-badge">🗒️ ${r.memo}</div>` : ''}
         <div class="recipe-card-actions">
           <button class="recipe-load-btn" onclick="loadRecipe(${r.id})">⬆️ 불러오기</button>
-          <button class="recipe-rename-btn" onclick="toggleRename(${r.id})">✏️ 이름수정</button>
+          <button class="recipe-rename-btn" onclick="toggleRename(${r.id})">✏️ 수정</button>
           <button class="recipe-del-btn" onclick="confirmDelete(${r.id}, '${r.name.replace(/'/g,"\\'")}')">🗑 삭제</button>
         </div>
         <div class="rename-row" id="rename-row-${r.id}" style="display:none">
           <input class="rename-input" id="rename-input-${r.id}" type="text" value="${r.name}" placeholder="새 이름 입력">
           <button class="rename-ok-btn" onclick="doRename(${r.id})">저장</button>
           <button class="rename-cancel-btn" onclick="toggleRename(${r.id})">취소</button>
+        </div>
+        <div class="memo-row" id="memo-row-${r.id}" style="display:none">
+          <textarea class="rename-input" id="memo-input-${r.id}" placeholder="메모 입력" style="height:68px;resize:none;line-height:1.5">${r.memo||''}</textarea>
+          <button class="rename-ok-btn" onclick="doMemo(${r.id})">저장</button>
+          <button class="rename-cancel-btn" onclick="toggleMemo(${r.id})">취소</button>
         </div>
       </div>
     </div>`;
@@ -1344,15 +1383,18 @@ function loadRecipe(id) {
 
 function toggleRename(id) {
   const row = document.getElementById('rename-row-'+id);
+  const memoRow = document.getElementById('memo-row-'+id);
   const isOpen = row.style.display !== 'none';
   row.style.display = isOpen ? 'none' : 'flex';
+  memoRow.style.display = isOpen ? 'none' : 'flex';
   if(!isOpen) {
     const inp = document.getElementById('rename-input-'+id);
-    inp.focus();
-    inp.select();
+    inp.focus(); inp.select();
     inp.onkeydown = (e) => { if(e.key==='Enter') doRename(id); if(e.key==='Escape') toggleRename(id); };
   }
 }
+
+function toggleMemo(id) { toggleRename(id); }
 
 function doRename(id) {
   const r = recipes.find(r=>r.id===id); if(!r) return;
@@ -1361,7 +1403,18 @@ function doRename(id) {
   r.name = newName;
   localStorage.setItem('babyPorridgeRecipes', JSON.stringify(recipes));
   renderRecipes();
-  showToast(`이름을 바꿨어요 ✅`);
+  showToast('저장됐어요 ✅');
+}
+
+function doMemo(id) {
+  const r = recipes.find(r=>r.id===id); if(!r) return;
+  const newName = document.getElementById('rename-input-'+id).value.trim();
+  if(!newName) { showToast('이름을 입력해주세요 ✏️'); return; }
+  r.name = newName;
+  r.memo = document.getElementById('memo-input-'+id).value.trim();
+  localStorage.setItem('babyPorridgeRecipes', JSON.stringify(recipes));
+  renderRecipes();
+  showToast('저장됐어요 ✅');
 }
 
 // ── Confirm delete modal
