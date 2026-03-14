@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <title>이유식 베이스죽 계산기</title>
 
 <!-- PWA / 홈화면 아이콘 -->
@@ -203,6 +203,8 @@
     padding: 0;
     line-height: 1;
     -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    user-select: none;
   }
   .move-btn:hover:not(:disabled) { background: var(--gold-light); border-color: var(--gold); color: var(--brown-dark); }
   .move-btn:active:not(:disabled) { background: var(--gold); transform: scale(0.93); }
@@ -408,6 +410,9 @@
     justify-content: center;
     transition: all 0.15s;
     flex-shrink: 0;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
   }
   .stepper-btn:hover { background: var(--gold-pale); border-color: var(--gold); }
   .stepper-input {
@@ -1041,7 +1046,7 @@
     _writingGrains = true;
     _db.ref('data/grainOptions').set(arr).then(() => { _writingGrains = false; });
   };
-  window._fbWatch = function() {
+  window._fbWatch = function(onGrainOptionsLoaded) {
     _db.ref('data/recipes').on('value', (snap) => {
       if (_writingRecipes) return;
       const val = snap.val();
@@ -1056,8 +1061,9 @@
       if (Array.isArray(val)) {
         GRAIN_OPTIONS = val;
         if (typeof renderGrainManage === 'function') renderGrainManage();
-        if (typeof renderGrains === 'function') renderGrains();
       }
+      // 잡곡 옵션 로드 완료 후 초기 렌더 콜백 호출
+      if (typeof onGrainOptionsLoaded === 'function') onGrainOptionsLoaded();
     });
   };
   console.log("Firebase 초기화 완료!");
@@ -1097,8 +1103,8 @@ function saveGrainOptions() {
 }
 
 let GRAIN_OPTIONS = loadGrainOptions();
-let grains = [{ id:1, type:'oat', amount:5 }];
-let grainIdCounter = 2;
+let grains = [];
+let grainIdCounter = 1;
 let recipes = [];
 
 // Emoji picker state
@@ -1383,6 +1389,10 @@ function renderRecipes() {
           <span class="recipe-tag">🌾 쌀 ${r.rice}g</span>
           ${grainTags}
         </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#FFF6E0,#FFE8B8);border:1.5px solid var(--gold);border-radius:12px;padding:10px 14px;margin-bottom:10px">
+          <span style="font-size:12px;color:var(--brown-mid);font-weight:600">🥣 1회 총량</span>
+          <span style="font-size:15px;font-weight:800;color:var(--brown-dark)">≈ ${r.onceTotal}g</span>
+        </div>
         <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">총 필요량</div>
         <div class="recipe-detail-grid">
           ${totalItems.map(it=>`
@@ -1529,12 +1539,22 @@ window.renderGrainManage = renderGrainManage;
 window.renderGrains = renderGrains;
 window.renderRecipes = renderRecipes;
 
-// 초기 렌더
-renderGrains();
-calc();
+// 초기 렌더 - Firebase에서 잡곡 옵션 먼저 받고 시작
+let _initialRenderDone = false;
+
+function _doInitialRender() {
+  if (_initialRenderDone) return;
+  _initialRenderDone = true;
+  grains = [{ id: grainIdCounter++, type: GRAIN_OPTIONS[0]?.id || 'oat', amount: 5 }];
+  renderGrains();
+  calc();
+}
 
 // Firebase 실시간 동기화 시작
-if (typeof window._fbWatch === 'function') window._fbWatch();
+if (typeof window._fbWatch === 'function') window._fbWatch(_doInitialRender);
+
+// Firebase가 1초 안에 안 오면 기본값으로 렌더
+setTimeout(_doInitialRender, 1000);
 </script>
 </body>
 </html>
