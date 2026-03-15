@@ -1019,54 +1019,64 @@
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
-<!-- Firebase compat (real estate와 동일한 방식) -->
+<!-- Firebase compat - Firestore (real estate와 동일한 방식) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script>
   const firebaseConfig = {
     apiKey: "AIzaSyAjNy8WO-jZd9_OiKqVBaL-aww4qAlfjGo",
     authDomain: "babyporridge-c5bc5.firebaseapp.com",
-    databaseURL: "https://babyporridge-c5bc5-default-rtdb.firebaseio.com",
     projectId: "babyporridge-c5bc5",
     storageBucket: "babyporridge-c5bc5.firebasestorage.app",
     messagingSenderId: "1005333099381",
     appId: "1:1005333099381:web:2867db3015075e515a993c"
   };
   firebase.initializeApp(firebaseConfig);
-  const _db = firebase.database();
+  const _db = firebase.firestore();
+  const DATA_DOC = _db.collection('porridge').doc('main');
 
   let _writingRecipes = false;
   let _writingGrains = false;
 
-  window._fbSaveRecipes = function(arr) {
+  window._fbSaveRecipes = async function(arr) {
     _writingRecipes = true;
-    _db.ref('data/recipes').set(arr).then(() => { _writingRecipes = false; });
+    try { await DATA_DOC.set({ recipes: arr, updatedAt: new Date().toISOString() }, { merge: true }); }
+    catch(e) { console.error('fbSaveRecipes error', e); }
+    _writingRecipes = false;
   };
-  window._fbSaveGrains = function(arr) {
+
+  window._fbSaveGrains = async function(arr) {
     _writingGrains = true;
-    _db.ref('data/grainOptions').set(arr).then(() => { _writingGrains = false; });
+    try { await DATA_DOC.set({ grainOptions: arr, updatedAt: new Date().toISOString() }, { merge: true }); }
+    catch(e) { console.error('fbSaveGrains error', e); }
+    _writingGrains = false;
   };
+
   window._fbWatch = function(onGrainOptionsLoaded) {
-    _db.ref('data/recipes').on('value', (snap) => {
-      if (_writingRecipes) return;
-      const val = snap.val();
-      if (Array.isArray(val)) {
-        recipes = val;
+    DATA_DOC.onSnapshot((snap) => {
+      if (!snap.exists) {
+        if (typeof onGrainOptionsLoaded === 'function') onGrainOptionsLoaded();
+        return;
+      }
+      const data = snap.data();
+
+      // 레시피 동기화
+      if (!_writingRecipes && Array.isArray(data.recipes)) {
+        recipes = data.recipes;
         if (typeof renderRecipes === 'function') renderRecipes();
       }
-    });
-    _db.ref('data/grainOptions').on('value', (snap) => {
-      if (_writingGrains) return;
-      const val = snap.val();
-      if (Array.isArray(val)) {
-        GRAIN_OPTIONS = val;
+
+      // 잡곡 옵션 동기화
+      if (!_writingGrains && Array.isArray(data.grainOptions)) {
+        GRAIN_OPTIONS = data.grainOptions;
         if (typeof renderGrainManage === 'function') renderGrainManage();
       }
-      // 잡곡 옵션 로드 완료 후 초기 렌더 콜백 호출
+
+      // 초기 렌더 콜백
       if (typeof onGrainOptionsLoaded === 'function') onGrainOptionsLoaded();
     });
   };
-  console.log("Firebase 초기화 완료!");
+  console.log("Firebase Firestore 초기화 완료!");
 </script>
 
 <script>
